@@ -1,0 +1,9 @@
+{
+  "name": "printverse-app",
+  "version": "1.0.0",
+  "description": "Demo app for supply chain attestation",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "keygen",
+  "version": "1.0.0",
+  "description": "Generates RSA keypair for signing",
+  "main": "generate.js",
+  "scripts": {
+    "start": "node generate.js"
+  }
+}

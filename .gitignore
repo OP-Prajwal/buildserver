@@ -1,0 +1,27 @@
+# ── Node ────────────────────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+
+# ── Environment (never commit real secrets) ──────────────────────────────────
+.env
+build-server/.env
+attacker/.env
+
+# ── Build artifacts ──────────────────────────────────────────────────────────
+*.log
+dist/
+build/
+
+# ── Docker ───────────────────────────────────────────────────────────────────
+# (nothing to ignore — Docker assets are intentional)
+
+# ── SBOM outputs (generated at runtime) ─────────────────────────────────────
+sbom.spdx.json
+sbom.json
+
+# ── Editor ───────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

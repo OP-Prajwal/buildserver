@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Supply Chain Attestation — Build Server</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">🔐</span>
+        <div>
+          <div class="logo-title">Supply Chain Attestation</div>
+          <div class="logo-sub">Deployment-Time Verification Gate</div>
+        </div>
+      </div>
+      <div class="header-status">
+        <div class="ws-indicator" id="wsIndicator"><span class="ws-dot"></span><span class="ws-label">Connecting...</span></div>
+        <div class="cosign-badge" id="cosignBadge">cosign: checking...</div>
+      </div>
+    </div>
+  </header>
+
+  <section class="section pipeline-section">
+    <h2 class="section-title">Pipeline</h2>
+    <div class="pipeline" id="pipeline">
+      <div class="pipeline-stage" id="stage-source"><div class="stage-icon">⌨️</div><div class="stage-name">Source Code</div><div class="stage-sub">GitHub Push</div></div>
+      <div class="pipeline-arrow"></div>
+      <div class="pipeline-stage" id="stage-ci"><div class="stage-icon">⚙️</div><div class="stage-name">GitHub Actions</div><div class="stage-sub">Build + Sign + SBOM</div></div>
+      <div class="pipeline-arrow"></div>
+      <div class="pipeline-stage" id="stage-registry"><div class="stage-icon">🗄️</div><div class="stage-name">Docker Hub</div><div class="stage-sub">Image Registry</div></div>
+      <div class="pipeline-arrow"></div>
+      <div class="pipeline-stage active" id="stage-gate"><div class="stage-icon">🛡️</div><div class="stage-name">Verification Gate</div><div class="stage-sub">Build Server</div></div>
+      <div class="pipeline-arrow"></div>
+      <div class="pipeline-stage" id="stage-deploy"><div class="stage-icon">🚀</div><div class="stage-name">Production</div><div class="stage-sub">Running Container</div></div>
+    </div>
+  </section>
+
+  <div class="two-col">
+    <section class="section">
+      <h2 class="section-title">Active Deployment</h2>
+      <div id="activeDeployment" class="empty-state"><span class="empty-icon">⏳</span><span>Waiting for deployment webhook...</span></div>
+    </section>
+    <section class="section">
+      <h2 class="section-title">Verification Checks</h2>
+      <div class="checks-grid" id="checksGrid">
+        <div class="check-item" id="check-webhook"><div class="check-icon">🔑</div><div class="check-info"><div class="check-name">Webhook Auth</div><div class="check-desc">HMAC-SHA256 validation</div></div><div class="check-badge idle" id="badge-webhook">—</div></div>
+        <div class="check-item" id="check-signature"><div class="check-icon">✍️</div><div class="check-info"><div class="check-name">Image Signature</div><div class="check-desc">cosign verify (Sigstore)</div></div><div class="check-badge idle" id="badge-signature">—</div></div>
+        <div class="check-item" id="check-sbom"><div class="check-icon">📋</div><div class="check-info"><div class="check-name">SBOM Attestation</div><div class="check-desc">cosign verify-attestation</div></div><div class="check-badge idle" id="badge-sbom">—</div></div>
+        <div class="check-item" id="check-pull"><div class="check-icon">⬇️</div><div class="check-info"><div class="check-name">Pull by Digest</div><div class="check-desc">Bypasses tag hijacking</div></div><div class="check-badge idle" id="badge-pull">—</div></div>
+        <div class="check-item" id="check-digest"><div class="check-icon">🔢</div><div class="check-info"><div class="check-name">Digest Verify</div><div class="check-desc">Expected vs actual SHA256</div></div><div class="check-badge idle" id="badge-digest">—</div></div>
+        <div class="check-item" id="check-deploy"><div class="check-icon">🚀</div><div class="check-info"><div class="check-name">Container Deploy</div><div class="check-desc">docker run (by digest)</div></div><div class="check-badge idle" id="badge-deploy">—</div></div>
+      </div>
+    </section>
+  </div>
+
+  <div id="verdictBanner" class="verdict-banner hidden"></div>
+
+  <div class="two-col">
+    <section class="section">
+      <h2 class="section-title">Deployment History</h2>
+      <div id="historyList" class="history-list"><div class="empty-state"><span class="empty-icon">📂</span><span>No deployments yet</span></div></div>
+    </section>
+    <section class="section log-section">
+      <div class="log-header"><h2 class="section-title">Live Logs</h2><button class="btn-clear" onclick="clearLogs()">Clear</button></div>
+      <div class="log-feed" id="logFeed"></div>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

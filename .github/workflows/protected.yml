@@ -1,0 +1,50 @@
+name: "Protected Pipeline (Attestation + Cosign)"
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+  build-attest-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: sigstore/cosign-installer@v3
+      - uses: anchore/sbom-action/download-syft@v0
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - id: push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./app
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/supplychainattest-app:latest
+      - run: |
+          IMAGE_REF="${{ secrets.DOCKERHUB_USERNAME }}/supplychainattest-app@${{ steps.push.outputs.digest }}"
+          cosign sign --yes "$IMAGE_REF"
+      - run: |
+          IMAGE_REF="${{ secrets.DOCKERHUB_USERNAME }}/supplychainattest-app@${{ steps.push.outputs.digest }}"
+          syft "$IMAGE_REF" -o spdx-json=sbom.spdx.json
+      - run: |
+          IMAGE_REF="${{ secrets.DOCKERHUB_USERNAME }}/supplychainattest-app@${{ steps.push.outputs.digest }}"
+          cosign attest --yes --predicate sbom.spdx.json --type spdxjson "$IMAGE_REF"
+      - name: Notify build server
+        env:
+          BUILD_SERVER_URL: ${{ secrets.BUILD_SERVER_URL }}
+          BUILD_SERVER_TOKEN: ${{ secrets.BUILD_SERVER_TOKEN }}
+        run: |
+          IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/supplychainattest-app:latest"
+          DIGEST="${{ steps.push.outputs.digest }}"
+          PAYLOAD=$(jq -nc --arg image "$IMAGE" --arg digest "$DIGEST" --arg ref "$GITHUB_REF" --arg sha "$GITHUB_SHA" --arg workflow "protected.yml" --arg mode "protected" '{image:$image, digest:$digest, ref:$ref, sha:$sha, workflow:$workflow, mode:$mode}')
+          SIGNATURE="sha256=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -hmac "$BUILD_SERVER_TOKEN" | awk '{print $2}')"
+          curl -fsSL -X POST "${BUILD_SERVER_URL}/webhook" -H "Content-Type: application/json" -H "X-Hub-Signature-256: ${SIGNATURE}" -d "$PAYLOAD"

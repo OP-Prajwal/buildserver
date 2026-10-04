@@ -1,0 +1,16 @@
+{
+  "name": "attacker",
+  "version": "1.0.0",
+  "description": "Supply Chain Attack Simulator — overwrites Docker Hub image with a malicious one",
+  "main": "hack.js",
+  "scripts": {
+    "hack": "node hack.js"
+  },
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "dotenv": "^16.3.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
