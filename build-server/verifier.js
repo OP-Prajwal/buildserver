@@ -3,6 +3,7 @@
 const { spawnSync } = require('child_process');
 const logger = require('./logger');
 
+const COSIGN_BIN = process.platform === 'win32' ? 'cosign-windows-amd64' : 'cosign';
 const GITHUB_REPO      = process.env.GITHUB_REPO;
 const TRUSTED_BRANCH   = process.env.TRUSTED_BRANCH   || 'main';
 const TRUSTED_WORKFLOW = process.env.TRUSTED_WORKFLOW  || 'protected.yml';
@@ -14,7 +15,7 @@ function trustedWorkflowIdentity() {
 }
 
 function isCosignInstalled() {
-  const r = spawnSync('cosign', ['version'], { stdio: 'pipe' });
+  const r = spawnSync(COSIGN_BIN, ['version'], { stdio: 'pipe' });
   return r.status === 0;
 }
 
@@ -23,7 +24,7 @@ function verifySignature(image, digest) {
   const ref      = `${image}@${digest}`;
   const identity = trustedWorkflowIdentity();
   logger.step(`cosign verify --certificate-identity="${identity}" ${ref}`);
-  const r = spawnSync('cosign', [
+  const r = spawnSync(COSIGN_BIN, [
     'verify',
     `--certificate-identity=${identity}`,
     `--certificate-oidc-issuer=${OIDC_ISSUER}`,
@@ -38,7 +39,7 @@ function verifySBOM(image, digest) {
   const ref      = `${image}@${digest}`;
   const identity = trustedWorkflowIdentity();
   logger.step(`cosign verify-attestation --type=spdxjson ${ref}`);
-  const r = spawnSync('cosign', [
+  const r = spawnSync(COSIGN_BIN, [
     'verify-attestation',
     '--type=spdxjson',
     `--certificate-identity=${identity}`,
