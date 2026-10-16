@@ -171,6 +171,7 @@ async function verifySBOMAsync(image, digest, timeoutMs = 60_000, expectedIdenti
 
 async function verifyProvenanceAsync(image, digest, timeoutMs = 60_000, expectedIdentity, expected = {}) {
   const ref = `${image}@${digest}`;
+  const observed = [];
   try {
     const { stdout } = await runCosign([
       'verify-attestation', '--type=custom',
@@ -181,9 +182,21 @@ async function verifyProvenanceAsync(image, digest, timeoutMs = 60_000, expected
       try {
         const statement = JSON.parse(Buffer.from(envelope.payload, 'base64').toString('utf8'));
         const predicate = statement.predicate || {};
+        const subjects = Array.isArray(statement.subject) ? statement.subject : [];
+        observed.push({
+          statementType: statement._type,
+          predicateType: statement.predicateType,
+          subjects: subjects.slice(0, 3).map(subject => ({ name: subject.name, sha256: subject.digest?.sha256 })),
+          predicate: {
+            imageRepository: predicate.imageRepository,
+            sourceRepository: predicate.sourceRepository,
+            commitSha: predicate.commitSha,
+            sourceRef: predicate.sourceRef,
+          },
+        });
         if (!['https://in-toto.io/Statement/v0.1', 'https://in-toto.io/Statement/v1'].includes(statement._type) ||
             statement.predicateType !== 'https://cosign.sigstore.dev/attestation/v1' ||
-            !Array.isArray(statement.subject) || !statement.subject.some(subject =>
+            !subjects.some(subject =>
               subject.name === image && subject.digest?.sha256 === digest.slice('sha256:'.length))) continue;
         if (predicate.imageRepository === expected.imageRepository &&
             predicate.sourceRepository === expected.sourceRepository &&
@@ -192,7 +205,20 @@ async function verifyProvenanceAsync(image, digest, timeoutMs = 60_000, expected
         }
       } catch { /* inspect the next verified statement */ }
     }
-    return { valid: false, error: 'No signed provenance statement matches the image digest and configured source' };
+    return {
+      valid: false,
+      error: JSON.stringify({
+        message: 'No signed provenance statement matches the image digest and configured source',
+        expected: {
+          imageRepository: expected.imageRepository,
+          digest: digest.slice('sha256:'.length),
+          sourceRepository: expected.sourceRepository,
+          commitSha: expected.commitSha,
+          sourceRef: expected.sourceRef,
+        },
+        observed: observed.slice(0, 3),
+      }),
+    };
   } catch (error) {
     return { valid: false, error: (error.cosignOutput || error.message || '').trim() };
   }
