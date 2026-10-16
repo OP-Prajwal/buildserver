@@ -66,6 +66,21 @@ function parseJsonDocuments(output) {
   return documents;
 }
 
+function unwrapCustomPredicate(statement) {
+  const predicate = statement?.predicate;
+  if (!predicate || typeof predicate !== 'object') return {};
+  const data = predicate.data ?? predicate.Data;
+  if (typeof data === 'string') {
+    try {
+      const parsed = JSON.parse(data);
+      if (parsed && typeof parsed === 'object') return parsed;
+    } catch { /* Keep the original predicate for useful mismatch diagnostics. */ }
+  } else if (data && typeof data === 'object') {
+    return data;
+  }
+  return predicate;
+}
+
 async function runCosign(args, timeoutMs) {
   try {
     return await execFileAsync(COSIGN_BIN, args, {
@@ -181,7 +196,7 @@ async function verifyProvenanceAsync(image, digest, timeoutMs = 60_000, expected
     for (const envelope of parseJsonDocuments(stdout)) {
       try {
         const statement = JSON.parse(Buffer.from(envelope.payload, 'base64').toString('utf8'));
-        const predicate = statement.predicate || {};
+        const predicate = unwrapCustomPredicate(statement);
         const subjects = Array.isArray(statement.subject) ? statement.subject : [];
         observed.push({
           statementType: statement._type,
