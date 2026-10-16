@@ -27,6 +27,45 @@ function normalizeTimeout(timeoutMs) {
   return Number.isFinite(timeout) && timeout > 0 ? Math.min(timeout, 120_000) : 60_000;
 }
 
+function parseJsonDocuments(output) {
+  const text = String(output || '').trim();
+  if (!text) return [];
+
+  try {
+    const parsed = JSON.parse(text);
+    return Array.isArray(parsed) ? parsed : [parsed];
+  } catch { /* Cosign can also emit newline-delimited or pretty-printed JSON records. */ }
+
+  const documents = [];
+  let start = -1;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = 0; index < text.length; index++) {
+    const character = text[index];
+    if (start < 0) {
+      if (character !== '{' && character !== '[') continue;
+      start = index;
+      depth = 1;
+      continue;
+    }
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (character === '\\') escaped = true;
+      else if (character === '"') inString = false;
+      continue;
+    }
+    if (character === '"') inString = true;
+    else if (character === '{' || character === '[') depth++;
+    else if (character === '}' || character === ']') depth--;
+    if (depth === 0) {
+      try { documents.push(JSON.parse(text.slice(start, index + 1))); } catch { /* Ignore non-JSON log fragments. */ }
+      start = -1;
+    }
+  }
+  return documents;
+}
+
 async function runCosign(args, timeoutMs) {
   try {
     return await execFileAsync(COSIGN_BIN, args, {
@@ -122,7 +161,8 @@ async function verifySBOMAsync(image, digest, timeoutMs = 60_000, expectedIdenti
 
   let packageCount = 0;
   try {
-    const att = JSON.parse(stdout.trim().split('\n')[0]);
+    const att = parseJsonDocuments(stdout).find(document => document?.payload);
+    if (!att) throw new Error('Cosign returned no attestation payload');
     const predicate = JSON.parse(Buffer.from(att.payload, 'base64').toString('utf8'));
     packageCount = (predicate.predicate || predicate)?.packages?.length ?? 0;
   } catch { /* package count is informational */ }
@@ -137,9 +177,8 @@ async function verifyProvenanceAsync(image, digest, timeoutMs = 60_000, expected
       `--certificate-identity=${expectedIdentity || trustedWorkflowIdentity()}`,
       `--certificate-oidc-issuer=${OIDC_ISSUER}`, ref,
     ], timeoutMs);
-    for (const line of stdout.trim().split(/\r?\n/)) {
+    for (const envelope of parseJsonDocuments(stdout)) {
       try {
-        const envelope = JSON.parse(line);
         const statement = JSON.parse(Buffer.from(envelope.payload, 'base64').toString('utf8'));
         const predicate = statement.predicate || {};
         if (!['https://in-toto.io/Statement/v0.1', 'https://in-toto.io/Statement/v1'].includes(statement._type) ||
