@@ -15,6 +15,7 @@ let currentProject = null;
 let csrfToken = '';
 let activeTab = 'overview';
 let loaded = {};
+let demoDecisions = [];
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, char => ({
@@ -114,6 +115,7 @@ async function selectProject(projectId) {
   currentProject = result.project;
   activeTab = 'overview';
   loaded = {};
+  demoDecisions = [];
   emptyState.classList.add('hidden');
   projectView.classList.remove('hidden');
   document.getElementById('projectName').textContent = currentProject.name;
@@ -205,7 +207,9 @@ function renderClusters(projectId) {
 function renderActivity() {
   const artifactRows = (loaded.artifacts || []).map(item => `<tr><td><code>${escapeHtml(item.image_repository)}@${escapeHtml(item.digest)}</code></td><td><code>${escapeHtml(item.commit_sha.slice(0, 12))}</code><br><span class="muted">${escapeHtml(item.source_repository)} · ${escapeHtml(item.source_ref)}</span></td><td>${new Date(item.verified_at).toLocaleString()}</td></tr>`);
   const decisionRows = (loaded.decisions || []).map(item => `<tr><td><span class="${item.allowed ? 'status-allowed' : 'status-denied'}">${item.allowed ? 'Allowed' : 'Denied'}</span><br><span class="muted">${escapeHtml(item.reason)}</span></td><td><code>${escapeHtml(item.image_repository)}${item.digest ? `@${escapeHtml(item.digest)}` : ''}</code></td><td>${escapeHtml(item.cluster_name)}<br><span class="muted">${escapeHtml(item.namespace || '')} ${escapeHtml(item.workload || '')}</span></td><td>${new Date(item.created_at).toLocaleString()}</td></tr>`);
-  projectContent.innerHTML = `<section class="panel"><h2>Verified build artifacts</h2><p>Only artifacts whose image signature and SBOM attestation passed verification appear here.</p>${table(['Image digest', 'Source', 'Verified'], artifactRows, 'No CI builds have been registered.')}</section><section class="panel"><h2>Kubernetes admission decisions</h2>${table(['Decision', 'Image', 'Cluster and workload', 'Time'], decisionRows, 'No admission requests have been recorded.')}</section>`;
+  const demoRows = demoDecisions.map(item => `<tr><td><span class="${item.allowed ? 'status-allowed' : 'status-denied'}">${item.allowed ? 'Allowed' : 'Denied'}</span><br><span class="demo-tag">SIMULATED</span><br><span class="muted">${escapeHtml(item.reason)}</span></td><td><code>${escapeHtml(item.image)}</code></td><td>${escapeHtml(item.cluster)}<br><span class="muted">${escapeHtml(item.namespace)} · ${escapeHtml(item.workload)}</span></td><td>${escapeHtml(item.time)}</td></tr>`);
+  const demoPanel = `<section class="panel demo-panel"><div class="panel-heading"><div><p class="eyebrow">PRESENTATION MODE</p><h2>Simulate an admission check</h2></div><span class="demo-tag">SIMULATION</span></div><p>Runs a local walkthrough using this project’s verified digest. No Kubernetes request is sent, and these results are not added to the audit log.</p><button class="button primary" data-action="simulate-admission" ${loaded.artifacts?.length ? '' : 'disabled'}>Run allow and deny scenario</button>${demoRows.length ? table(['Simulated decision', 'Image', 'Cluster and workload', 'Time'], demoRows, '') : ''}</section>`;
+  projectContent.innerHTML = `${demoPanel}<section class="panel"><h2>Verified build artifacts</h2><p>Only artifacts whose image signature and SBOM attestation passed verification appear here.</p>${table(['Image digest', 'Source', 'Verified'], artifactRows, 'No CI builds have been registered.')}</section><section class="panel"><h2>Kubernetes admission decisions</h2>${table(['Decision', 'Image', 'Cluster and workload', 'Time'], decisionRows, 'No admission requests have been recorded.')}</section>`;
 }
 
 function formObject(form) {
@@ -251,6 +255,20 @@ document.addEventListener('click', async event => {
         await navigator.clipboard.writeText(button.dataset.copy || '');
         showNotice('Copied. Store the credential in your secret manager.');
         break;
+      case 'simulate-admission': {
+        const artifact = loaded.artifacts?.[0];
+        if (!artifact) { showNotice('Register a verified build before running this scenario.', true); break; }
+        const cluster = loaded.clusters?.find(item => item.status === 'active')?.name || 'presentation-cluster';
+        const time = new Date().toLocaleString();
+        const deniedDigest = `sha256:${'0'.repeat(64)}`;
+        demoDecisions = [
+          { allowed: true, image: `${artifact.image_repository}@${artifact.digest}`, cluster, namespace: 'demo', workload: 'payments-demo', reason: 'Exact digest exists in this project’s verified CI artifacts', time },
+          { allowed: false, image: `${artifact.image_repository}@${deniedDigest}`, cluster, namespace: 'demo', workload: 'untrusted-demo', reason: 'No verified CI artifact exists for this digest', time },
+        ];
+        renderActivity();
+        showNotice('Simulation complete. These results were not sent to Kubernetes or stored in the audit log.');
+        break;
+      }
       case 'revoke-invite':
         if (confirm('Revoke this pending invitation?')) {
           await request(`/api/projects/${currentProject.id}/invitations/${button.dataset.id}`, { method: 'DELETE' });
