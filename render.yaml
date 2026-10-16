@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: attestgate-backend
+    runtime: node
+    buildCommand: npm install
+    startCommand: node server.js
+    rootDir: build-server
+    plan: free
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: BUILD_SERVER_TOKEN
+        sync: false
+      - key: GITHUB_REPO
+        value: OP-Prajwal/buildserver
+      - key: TRUSTED_WORKFLOW
+        value: protected.yml
+      - key: TRUSTED_BRANCH
+        value: main
+      - key: DOCKERHUB_USERNAME
+        value: opprajwal
+      - key: APP_CONTAINER_NAME
+        value: supplychainattest-app
+      - key: APP_PORT
+        value: 3000

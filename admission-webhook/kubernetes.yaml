@@ -1,0 +1,158 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: attestgate-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: attestgate-admission
+  namespace: attestgate-system
+automountServiceAccountToken: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: attestgate-admission
+  namespace: attestgate-system
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: attestgate-admission
+  template:
+    metadata:
+      labels:
+        app: attestgate-admission
+    spec:
+      serviceAccountName: attestgate-admission
+      containers:
+        - name: webhook
+          image: ghcr.io/REPLACE_OWNER/attestgate-admission@sha256:REPLACE_WITH_64_HEX_DIGEST
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: https
+              containerPort: 8443
+          env:
+            - name: HOME
+              value: /tmp
+            - name: CONTROL_PLANE_URL
+              value: REPLACE_WITH_HTTPS_CONTROL_PLANE_URL
+            - name: CLUSTER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: attestgate-cluster-auth
+                  key: token
+            - name: COSIGN_TIMEOUT_MS
+              value: "7000"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8443
+              scheme: HTTPS
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8443
+              scheme: HTTPS
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 1
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: tls
+              mountPath: /tls
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tls
+          secret:
+            secretName: attestgate-admission-tls
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: attestgate-admission
+  namespace: attestgate-system
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: attestgate-admission
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: attestgate-admission
+  namespace: attestgate-system
+spec:
+  selector:
+    app: attestgate-admission
+  ports:
+    - name: https
+      port: 443
+      targetPort: https
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: attestgate-admission
+webhooks:
+  - name: images.attestgate.io
+    admissionReviewVersions: [v1]
+    sideEffects: None
+    failurePolicy: Fail
+    matchPolicy: Equivalent
+    timeoutSeconds: 30
+    clientConfig:
+      service:
+        namespace: attestgate-system
+        name: attestgate-admission
+        path: /validate
+        port: 443
+      caBundle: REPLACE_WITH_BASE64_CA_CERT
+    namespaceSelector:
+      matchLabels:
+        attestgate.io/enforce: "true"
+    rules:
+      - operations: [CREATE, UPDATE]
+        apiGroups: [""]
+        apiVersions: [v1]
+        resources: [pods, replicationcontrollers]
+        scope: '*'
+      - operations: [UPDATE]
+        apiGroups: [""]
+        apiVersions: [v1]
+        resources: [pods/ephemeralcontainers]
+        scope: '*'
+      - operations: [CREATE, UPDATE]
+        apiGroups: [apps]
+        apiVersions: [v1]
+        resources: [deployments, statefulsets, daemonsets, replicasets]
+        scope: '*'
+      - operations: [CREATE, UPDATE]
+        apiGroups: [batch]
+        apiVersions: [v1]
+        resources: [jobs, cronjobs]
+        scope: '*'

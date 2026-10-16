@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101827">
+  <title>AttestGate</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="AttestGate home"><span class="brand-mark">A</span><span>AttestGate</span></a>
+    <div class="account" id="account"></div>
+  </header>
+  <main id="app" class="page" aria-live="polite">
+    <section id="loginPanel" class="login-panel hidden">
+      <p class="eyebrow">SOFTWARE SUPPLY CHAIN SECURITY</p>
+      <h1>Protect deployments with verifiable builds.</h1>
+      <p>Create a project, connect its build workflow, enroll Kubernetes clusters, and see each admission decision in one place.</p>
+      <a class="button primary" href="/auth/github">Continue with GitHub</a>
+      <p class="muted small">Your verified GitHub email is used to accept project invitations.</p>
+    </section>
+
+    <section id="workspace" class="workspace hidden">
+      <aside class="sidebar">
+        <div class="section-heading"><span>Projects</span><button class="icon-button" data-action="new-project" aria-label="Create project">+</button></div>
+        <div id="projectList" class="project-list"></div>
+        <div class="sidebar-note">Each project has its own members, CI credentials, verified artifacts, and clusters.</div>
+      </aside>
+      <section class="content">
+        <div id="emptyState" class="empty-state hidden">
+          <p class="eyebrow">GET STARTED</p><h1>Create your first project</h1>
+          <p>A project holds the engineers, trusted CI workflow, verified image records, and Kubernetes clusters for one product.</p>
+          <button class="button primary" data-action="new-project">Create project</button>
+        </div>
+        <div id="projectView" class="hidden">
+          <div class="project-header">
+            <div><p class="eyebrow" id="projectSlug"></p><h1 id="projectName"></h1></div>
+            <span class="role-pill" id="projectRole"></span>
+          </div>
+          <nav class="tabs" id="projectTabs">
+            <button class="tab active" data-tab="overview">Overview</button>
+            <button class="tab" data-tab="team">Team</button>
+            <button class="tab" data-tab="ci">CI integration</button>
+            <button class="tab" data-tab="clusters">Kubernetes</button>
+            <button class="tab" data-tab="activity">Verified builds & decisions</button>
+          </nav>
+          <div id="projectContent"></div>
+        </div>
+      </section>
+    </section>
+    <div id="notice" class="notice hidden" role="status"></div>
+  </main>
+  <dialog id="projectDialog">
+    <form id="projectForm" method="dialog">
+      <div class="dialog-heading"><div><p class="eyebrow">NEW PROJECT</p><h2>Create a project</h2></div><button class="icon-button" value="cancel" aria-label="Close">×</button></div>
+      <label>Project name<input name="name" required minlength="2" maxlength="100" placeholder="Payments API"></label>
+      <label>Project slug<input name="slug" maxlength="63" placeholder="payments-api"><span class="field-note">Used in URLs and CI setup.</span></label>
+      <div class="dialog-actions"><button class="button" value="cancel">Cancel</button><button class="button primary" value="create">Create project</button></div>
+    </form>
+  </dialog>
+  <script src="/app.js" defer></script>
+</body>
+</html>

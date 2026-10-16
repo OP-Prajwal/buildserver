@@ -1,0 +1,16 @@
+services:
+  control-plane:
+    build:
+      context: .
+      dockerfile: control-plane/Dockerfile
+    environment:
+      PORT: 4100
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL to the Neon pooled connection string}
+      APP_BASE_URL: ${APP_BASE_URL:?Set APP_BASE_URL to the public HTTPS URL}
+      GITHUB_OAUTH_CLIENT_ID: ${GITHUB_OAUTH_CLIENT_ID:?Set GITHUB_OAUTH_CLIENT_ID}
+      GITHUB_OAUTH_CLIENT_SECRET: ${GITHUB_OAUTH_CLIENT_SECRET:?Set GITHUB_OAUTH_CLIENT_SECRET}
+      COOKIE_SECURE: "true"
+      COSIGN_TIMEOUT_MS: 15000
+    ports:
+      - "127.0.0.1:4100:4100"
+    restart: unless-stopped

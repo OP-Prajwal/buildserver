@@ -1,0 +1,19 @@
+{
+  "name": "attestgate-control-plane",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AttestGate project, CI integration, cluster enrollment, and provenance API",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "express": "^4.21.2",
+    "pg": "^8.15.6"
+  }
+}

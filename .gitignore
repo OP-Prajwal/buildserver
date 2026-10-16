@@ -4,6 +4,9 @@ npm-debug.log*
 
 # ── Environment (never commit real secrets) ──────────────────────────────────
 .env
+.env.*
+!.env.example
+!.env.neon.example
 build-server/.env
 attacker/.env
 

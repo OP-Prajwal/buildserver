@@ -1,0 +1,13 @@
+{
+  "name": "attestgate-admission-webhook",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Kubernetes validating admission webhook for Cosign verified images",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -3,74 +3,339 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Supply Chain Attestation — Build Server</title>
+  <title>AttestGate — Zero-Trust Supply Chain Gatekeeper</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <!-- Header -->
   <header class="header">
     <div class="header-inner">
       <div class="logo">
-        <span class="logo-icon">🔐</span>
+        <span class="logo-icon">🛡️</span>
         <div>
-          <div class="logo-title">Supply Chain Attestation</div>
-          <div class="logo-sub">Deployment-Time Verification Gate</div>
+          <div class="logo-title">AttestGate</div>
+          <div class="logo-sub">Zero-Trust Supply Chain Gatekeeper</div>
         </div>
       </div>
+
+      <!-- Quick Status Badges -->
       <div class="header-status">
-        <div class="ws-indicator" id="wsIndicator"><span class="ws-dot"></span><span class="ws-label">Connecting...</span></div>
-        <div class="cosign-badge" id="cosignBadge">cosign: checking...</div>
+        <div class="cluster-badge" id="clusterBadge">☸️ Cluster: k8s-prod (Secure Tunnel)</div>
+        <div class="cosign-badge ok" id="cosignBadge">cosign: ✅ ready</div>
+        <div class="ws-indicator connected" id="wsIndicator">
+          <span class="ws-dot"></span><span class="ws-label">Live</span>
+        </div>
       </div>
     </div>
   </header>
 
-  <section class="section pipeline-section">
-    <h2 class="section-title">Pipeline</h2>
-    <div class="pipeline" id="pipeline">
-      <div class="pipeline-stage" id="stage-source"><div class="stage-icon">⌨️</div><div class="stage-name">Source Code</div><div class="stage-sub">GitHub Push</div></div>
-      <div class="pipeline-arrow"></div>
-      <div class="pipeline-stage" id="stage-ci"><div class="stage-icon">⚙️</div><div class="stage-name">GitHub Actions</div><div class="stage-sub">Build + Sign + SBOM</div></div>
-      <div class="pipeline-arrow"></div>
-      <div class="pipeline-stage" id="stage-registry"><div class="stage-icon">🗄️</div><div class="stage-name">Docker Hub</div><div class="stage-sub">Image Registry</div></div>
-      <div class="pipeline-arrow"></div>
-      <div class="pipeline-stage active" id="stage-gate"><div class="stage-icon">🛡️</div><div class="stage-name">Verification Gate</div><div class="stage-sub">Build Server</div></div>
-      <div class="pipeline-arrow"></div>
-      <div class="pipeline-stage" id="stage-deploy"><div class="stage-icon">🚀</div><div class="stage-name">Production</div><div class="stage-sub">Running Container</div></div>
+  <!-- Top Navigation Tabs -->
+  <nav class="nav-tabs">
+    <div class="nav-inner">
+      <button class="tab-btn active" onclick="switchTab('gate')">🛡️ Deployment Gate</button>
+      <button class="tab-btn" onclick="switchTab('team')">👥 Team & Repositories</button>
+      <button class="tab-btn" onclick="switchTab('prs')">🔀 Pull Requests & Provenance</button>
+      <button class="tab-btn" onclick="switchTab('cluster')">☸️ Kubernetes Cluster Agent</button>
     </div>
-  </section>
+  </nav>
 
-  <div class="two-col">
-    <section class="section">
-      <h2 class="section-title">Active Deployment</h2>
-      <div id="activeDeployment" class="empty-state"><span class="empty-icon">⏳</span><span>Waiting for deployment webhook...</span></div>
-    </section>
-    <section class="section">
-      <h2 class="section-title">Verification Checks</h2>
-      <div class="checks-grid" id="checksGrid">
-        <div class="check-item" id="check-webhook"><div class="check-icon">🔑</div><div class="check-info"><div class="check-name">Webhook Auth</div><div class="check-desc">HMAC-SHA256 validation</div></div><div class="check-badge idle" id="badge-webhook">—</div></div>
-        <div class="check-item" id="check-signature"><div class="check-icon">✍️</div><div class="check-info"><div class="check-name">Image Signature</div><div class="check-desc">cosign verify (Sigstore)</div></div><div class="check-badge idle" id="badge-signature">—</div></div>
-        <div class="check-item" id="check-sbom"><div class="check-icon">📋</div><div class="check-info"><div class="check-name">SBOM Attestation</div><div class="check-desc">cosign verify-attestation</div></div><div class="check-badge idle" id="badge-sbom">—</div></div>
-        <div class="check-item" id="check-pull"><div class="check-icon">⬇️</div><div class="check-info"><div class="check-name">Pull by Digest</div><div class="check-desc">Bypasses tag hijacking</div></div><div class="check-badge idle" id="badge-pull">—</div></div>
-        <div class="check-item" id="check-digest"><div class="check-icon">🔢</div><div class="check-info"><div class="check-name">Digest Verify</div><div class="check-desc">Expected vs actual SHA256</div></div><div class="check-badge idle" id="badge-digest">—</div></div>
-        <div class="check-item" id="check-deploy"><div class="check-icon">🚀</div><div class="check-info"><div class="check-name">Container Deploy</div><div class="check-desc">docker run (by digest)</div></div><div class="check-badge idle" id="badge-deploy">—</div></div>
+  <!-- TAB 1: DEPLOYMENT GATE -->
+  <main id="tab-gate" class="tab-content active">
+    <!-- Action Bar for Live Demo -->
+    <div class="action-bar-container">
+      <div class="action-bar">
+        <div class="action-info">
+          <strong>Interactive Demo Controls:</strong> Test deployment verification in real-time.
+        </div>
+        <div class="action-buttons">
+          <button class="btn btn-clean" onclick="triggerCleanDeploy()">🟢 Simulate Clean Deploy (PR #14)</button>
+          <button class="btn btn-attack" onclick="triggerAttackDeploy()">🔴 Simulate Registry Attack</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pipeline Visualizer -->
+    <section class="section pipeline-section">
+      <h2 class="section-title">Deployment Pipeline</h2>
+      <div class="pipeline" id="pipeline">
+        <div class="pipeline-stage" id="stage-source">
+          <div class="stage-icon">⌨️</div>
+          <div class="stage-name">Approved PR</div>
+          <div class="stage-sub">GitHub Merge</div>
+        </div>
+        <div class="pipeline-arrow"></div>
+        <div class="pipeline-stage" id="stage-ci">
+          <div class="stage-icon">⚙️</div>
+          <div class="stage-name">GitHub Actions</div>
+          <div class="stage-sub">Cosign Sign + SBOM</div>
+        </div>
+        <div class="pipeline-arrow"></div>
+        <div class="pipeline-stage" id="stage-registry">
+          <div class="stage-icon">🗄️</div>
+          <div class="stage-name">Docker Hub</div>
+          <div class="stage-sub">Container Registry</div>
+        </div>
+        <div class="pipeline-arrow"></div>
+        <div class="pipeline-stage active" id="stage-gate">
+          <div class="stage-icon">🛡️</div>
+          <div class="stage-name">AttestGate</div>
+          <div class="stage-sub">Verification Gate</div>
+        </div>
+        <div class="pipeline-arrow"></div>
+        <div class="pipeline-stage" id="stage-deploy">
+          <div class="stage-icon">☸️</div>
+          <div class="stage-name">Kubernetes Prod</div>
+          <div class="stage-sub">Target Cluster</div>
+        </div>
       </div>
     </section>
-  </div>
 
-  <div id="verdictBanner" class="verdict-banner hidden"></div>
+    <!-- Verdict Banner -->
+    <div id="verdictBanner" class="verdict-banner hidden"></div>
 
-  <div class="two-col">
-    <section class="section">
-      <h2 class="section-title">Deployment History</h2>
-      <div id="historyList" class="history-list"><div class="empty-state"><span class="empty-icon">📂</span><span>No deployments yet</span></div></div>
-    </section>
-    <section class="section log-section">
-      <div class="log-header"><h2 class="section-title">Live Logs</h2><button class="btn-clear" onclick="clearLogs()">Clear</button></div>
-      <div class="log-feed" id="logFeed"></div>
-    </section>
-  </div>
+    <!-- Two Column: Active Deployment & Checks -->
+    <div class="two-col">
+      <section class="section">
+        <h2 class="section-title">Active Deployment Details</h2>
+        <div id="activeDeployment" class="empty-state">
+          <span class="empty-icon">⏳</span><span>Ready. Waiting for deployment webhook or simulation...</span>
+        </div>
+      </section>
 
+      <section class="section">
+        <h2 class="section-title">Cryptographic Gate Checks</h2>
+        <div class="checks-grid" id="checksGrid">
+          <div class="check-item" id="check-webhook">
+            <div class="check-icon">🔑</div>
+            <div class="check-info">
+              <div class="check-name">Webhook HMAC Authentication</div>
+              <div class="check-desc">Shared secret validation from GitHub CI</div>
+            </div>
+            <div class="check-badge idle" id="badge-webhook">—</div>
+          </div>
+
+          <div class="check-item" id="check-signature">
+            <div class="check-icon">✍️</div>
+            <div class="check-info">
+              <div class="check-name">Image Signature (Cosign / Sigstore)</div>
+              <div class="check-desc">Validates keyless OIDC identity from CI workflow</div>
+            </div>
+            <div class="check-badge idle" id="badge-signature">—</div>
+          </div>
+
+          <div class="check-item" id="check-sbom">
+            <div class="check-icon">📋</div>
+            <div class="check-info">
+              <div class="check-name">SBOM Attestation (Syft SPDX)</div>
+              <div class="check-desc">Cryptographically signed bill of materials</div>
+            </div>
+            <div class="check-badge idle" id="badge-sbom">—</div>
+          </div>
+
+          <div class="check-item" id="check-pull">
+            <div class="check-icon">⬇️</div>
+            <div class="check-info">
+              <div class="check-name">Pinned Digest Pull</div>
+              <div class="check-desc">Pulls by immutable sha256 hash (defeats tag hijacking)</div>
+            </div>
+            <div class="check-badge idle" id="badge-pull">—</div>
+          </div>
+
+          <div class="check-item" id="check-digest">
+            <div class="check-icon">🔢</div>
+            <div class="check-info">
+              <div class="check-name">Integrity Digest Match</div>
+              <div class="check-desc">Expected PR build hash vs actual pulled image</div>
+            </div>
+            <div class="check-badge idle" id="badge-digest">—</div>
+          </div>
+
+          <div class="check-item" id="check-deploy">
+            <div class="check-icon">☸️</div>
+            <div class="check-info">
+              <div class="check-name">Cluster Admission Rollout</div>
+              <div class="check-desc">Permits deployment into Kubernetes & Docker runtime</div>
+            </div>
+            <div class="check-badge idle" id="badge-deploy">—</div>
+          </div>
+        </div>
+
+        <!-- HASH COMPARISON & GATEKEEPER AUDIT -->
+        <div style="margin-top: 1.2rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+            <strong style="font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">
+              🛡️ SHA-256 Hash Comparison & Gatekeeper Engine
+            </strong>
+            <span id="hashGateStatus" class="check-badge idle">Standing By</span>
+          </div>
+          <div style="font-family: monospace; font-size: 0.78rem; display: flex; flex-direction: column; gap: 0.4rem;">
+            <div style="display: flex; justify-content: space-between; background: rgba(0,0,0,0.25); padding: 0.4rem 0.6rem; border-radius: 4px;">
+              <span style="color: var(--text-muted);">CI Pipeline Hash:</span>
+              <span id="ciHashVal" style="color: var(--accent); font-weight: bold;">Waiting for build...</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; background: rgba(0,0,0,0.25); padding: 0.4rem 0.6rem; border-radius: 4px;">
+              <span style="color: var(--text-muted);">Docker/K8s Target Hash:</span>
+              <span id="targetHashVal" style="color: #60a5fa; font-weight: bold;">Waiting for target...</span>
+            </div>
+            <div id="hashCompareResult" style="padding: 0.4rem 0.6rem; border-radius: 4px; text-align: center; font-weight: bold; display: none;"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+
+    <!-- History & Live Logs -->
+    <div class="two-col">
+      <section class="section">
+        <h2 class="section-title">Deployment Audit History</h2>
+        <div id="historyList" class="history-list">
+          <div class="empty-state"><span class="empty-icon">📂</span><span>No deployments recorded yet</span></div>
+        </div>
+      </section>
+
+      <section class="section log-section">
+        <div class="log-header">
+          <h2 class="section-title">Verification Engine Logs</h2>
+          <button class="btn-clear" onclick="clearLogs()">Clear</button>
+        </div>
+        <div class="log-feed" id="logFeed"></div>
+      </section>
+    </div>
+  </main>
+
+  <!-- TAB 2: TEAM & REPOSITORIES -->
+  <main id="tab-team" class="tab-content">
+    <div class="two-col">
+      <section class="section">
+        <div class="section-header-flex">
+          <h2 class="section-title">Connected Repositories</h2>
+        </div>
+        <div class="repo-card">
+          <div class="repo-header">
+            <span class="repo-name">📦 OP-Prajwal/buildserver</span>
+            <span class="repo-badge">Protected</span>
+          </div>
+          <div class="repo-meta">
+            <div>Target Branch: <code>main</code></div>
+            <div>Enforced Policy: <code>Strict Cosign Signature + SPDX SBOM</code></div>
+            <div>Webhook Status: <code>Active (HMAC-SHA256)</code></div>
+          </div>
+        </div>
+
+        <div style="margin-top: 1.5rem;">
+          <h2 class="section-title">Active Workspace Developers</h2>
+          <div id="teamList" class="team-list"></div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-header-flex">
+          <h2 class="section-title">Manager Portal: Invite Engineer via Email</h2>
+        </div>
+        <p class="section-desc">Product Leads can invite engineers. The system sends an email invitation with a secure Join Code.</p>
+        
+        <form class="invite-form" onsubmit="sendInvitation(event)">
+          <div class="form-grid">
+            <input type="text" id="invName" placeholder="Engineer Name (e.g. Alex Rivera)" required />
+            <input type="email" id="invEmail" placeholder="Work Email (e.g. alex@company.com)" required />
+            <input type="text" id="invGithub" placeholder="GitHub Username (e.g. alex-dev)" required />
+            <select id="invRole">
+              <option value="Core Developer">Core Developer</option>
+              <option value="Security Reviewer">Security Reviewer</option>
+              <option value="DevSecOps Lead">DevSecOps Lead</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary" style="margin-top: 0.6rem;">✉️ Send Email Invitation</button>
+        </form>
+
+        <div style="margin-top: 1.5rem;">
+          <h2 class="section-title">Pending Invitations & Join Portal</h2>
+          <div id="invitationList" class="invitation-list"></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- TAB 3: PULL REQUESTS & PROVENANCE -->
+  <main id="tab-prs" class="tab-content">
+    <div class="two-col">
+      <section class="section">
+        <div class="section-header-flex">
+          <h2 class="section-title">Submit Official Pull Request</h2>
+        </div>
+        <p class="section-desc">Employees paste their official GitHub PR link. The AttestGate verification engine checks employee authorization, attests code provenance, and grants deployment rights.</p>
+        
+        <form class="invite-form" onsubmit="submitOfficialPR(event)">
+          <div class="form-grid" style="grid-template-columns: 1fr;">
+            <div>
+              <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.3rem;">Registered Employee</label>
+              <select id="prAuthorSelect" style="width: 100%;"></select>
+            </div>
+            <div>
+              <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.3rem;">GitHub Pull Request URL</label>
+              <input type="url" id="prUrlInput" placeholder="https://github.com/OP-Prajwal/buildserver/pull/15" required style="width: 100%;" />
+            </div>
+            <div>
+              <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.3rem;">PR Title / Feature Scope</label>
+              <input type="text" id="prTitleInput" placeholder="feat: implement secure telemetry pipeline" required style="width: 100%;" />
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary" style="margin-top: 0.8rem; width: 100%;">🔗 Attest Official PR Provenance</button>
+        </form>
+      </section>
+
+      <section class="section">
+        <div class="section-header-flex">
+          <h2 class="section-title">Attested Pull Requests & CI Provenance</h2>
+        </div>
+        <p class="section-desc">Only Pull Requests attested by registered engineers can pass the gatekeeper.</p>
+        <div id="prList" class="pr-list"></div>
+      </section>
+    </div>
+  </main>
+
+  <!-- TAB 4: KUBERNETES CLUSTER AGENT -->
+  <main id="tab-cluster" class="tab-content">
+    <div class="two-col">
+      <section class="section">
+        <h2 class="section-title">Cluster Connection Status</h2>
+        <div class="cluster-card">
+          <div class="cluster-status-row">
+            <span class="status-dot green"></span>
+            <strong>Cluster Name:</strong>
+            <span id="clusterName">k8s-prod-us-east-1</span>
+          </div>
+          <div class="cluster-status-row">
+            <span class="status-dot green"></span>
+            <strong>Connection Tunnel:</strong>
+            <span id="clusterTunnel">Active (Mutual TLS)</span>
+          </div>
+          <div class="cluster-status-row">
+            <span class="status-dot blue"></span>
+            <strong>Agent Version:</strong>
+            <span>v1.4.0 (AttestGate Sidecar)</span>
+          </div>
+          <div class="cluster-status-row">
+            <span class="status-dot green"></span>
+            <strong>Admission Policy:</strong>
+            <span>Strict Pre-Execution Gate</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title">Agent Deployment Snippet</h2>
+        <p class="section-desc">Deploy the AttestGate Admission Gatekeeper to any Kubernetes cluster:</p>
+        <pre class="code-box"><code>kubectl apply -f https://attestgate.dev/agent.yaml \
+  --set clusterToken=sca-buildserver-2026 \
+  --set serverUrl=http://localhost:4000</code></pre>
+      </section>
+    </div>
+  </main>
+
+  <script src="config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
